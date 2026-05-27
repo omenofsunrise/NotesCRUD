@@ -9,15 +9,23 @@ import (
 	"github.com/google/uuid"
 )
 
-type NoteRepo struct {
+type PostgresNoteRepo struct {
 	DB *sql.DB
 }
 
-func NewNoteRepo(db *sql.DB) *NoteRepo {
-	return &NoteRepo{DB: db}
+type NoteRepository interface {
+	GetAll() ([]models.Note, error)
+	GetById(id uuid.UUID) (*models.Note, error)
+	Create(content string) (*models.Note, error)
+	Delete(id uuid.UUID) (bool, error)
+	UpdateNote(id uuid.UUID, content string) (bool, error)
 }
 
-func (r *NoteRepo) GetAll() ([]models.Note, error) {
+func NewPostgresNoteRepo(db *sql.DB) *PostgresNoteRepo {
+	return &PostgresNoteRepo{DB: db}
+}
+
+func (r *PostgresNoteRepo) GetAll() ([]models.Note, error) {
 	query := `
 		SELECT id, content, created_at
 		FROM notes`
@@ -41,7 +49,7 @@ func (r *NoteRepo) GetAll() ([]models.Note, error) {
 	return notes, nil
 }
 
-func (r *NoteRepo) GetById(id uuid.UUID) (*models.Note, error) {
+func (r *PostgresNoteRepo) GetById(id uuid.UUID) (*models.Note, error) {
 	query := `
 		SELECT id, content, created_at
 		FROM notes
@@ -59,7 +67,7 @@ func (r *NoteRepo) GetById(id uuid.UUID) (*models.Note, error) {
 	return &note, nil
 }
 
-func (r *NoteRepo) Create(content string) (*models.Note, error) {
+func (r *PostgresNoteRepo) Create(content string) (*models.Note, error) {
 	now := time.Now()
 	query := `
 		INSERT INTO notes (content, created_at)
@@ -75,7 +83,7 @@ func (r *NoteRepo) Create(content string) (*models.Note, error) {
 	return &note, nil
 }
 
-func (r *NoteRepo) Delete(id uuid.UUID) (bool, error) {
+func (r *PostgresNoteRepo) Delete(id uuid.UUID) (bool, error) {
 	query := `
 		DELETE 
 		FROM notes
@@ -90,7 +98,7 @@ func (r *NoteRepo) Delete(id uuid.UUID) (bool, error) {
 	return n > 0, e
 }
 
-func (r *NoteRepo) UpdateNote(id uuid.UUID, content string) (bool, error) {
+func (r *PostgresNoteRepo) UpdateNote(id uuid.UUID, content string) (bool, error) {
 	query := `
         UPDATE notes 
         SET content = $1

@@ -20,7 +20,7 @@ func main() {
 	database.InitDB()
 	defer database.DB.Close()
 
-	noteRepo := repository.NewNoteRepo(database.DB)
+	noteRepo := repository.NewPostgresNoteRepo(database.DB)
 	noteHandler := handlers.NewHanlderNote(noteRepo)
 	r := mux.NewRouter()
 

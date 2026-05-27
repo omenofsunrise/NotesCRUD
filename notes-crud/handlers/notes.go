@@ -14,14 +14,13 @@ import (
 )
 
 type NoteHandler struct {
-	r *repository.NoteRepo
+	r repository.NoteRepository
 }
 
-func NewHanlderNote(repo *repository.NoteRepo) *NoteHandler {
+func NewHanlderNote(repo repository.NoteRepository) *NoteHandler {
 	return &NoteHandler{r: repo}
 }
 
-// GET /notes
 func (h *NoteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	notes, e := h.r.GetAll()
 	if e != nil {
@@ -32,7 +31,6 @@ func (h *NoteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	setResponse(w, http.StatusOK, notes)
 }
 
-// POST /notes
 func (h *NoteHandler) AddNote(w http.ResponseWriter, r *http.Request) {
 	var note models.Note
 	json.NewDecoder(r.Body).Decode(&note)
@@ -55,7 +53,6 @@ func (h *NoteHandler) AddNote(w http.ResponseWriter, r *http.Request) {
 	setResponse(w, http.StatusCreated, newNote)
 }
 
-// GET /notes/{id}
 func (h *NoteHandler) GetNoteById(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
@@ -78,7 +75,6 @@ func (h *NoteHandler) GetNoteById(w http.ResponseWriter, r *http.Request) {
 	setResponse(w, http.StatusOK, note)
 }
 
-// DELETE /notes/{id}
 func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
@@ -88,7 +84,7 @@ func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 	}
 	noteUUID, err := uuid.Parse(id)
 	if err != nil {
-		setErrorResponse(w, http.StatusBadRequest, "invald uuid")
+		setErrorResponse(w, http.StatusBadRequest, "invalid uuid")
 		return
 	}
 	success, err := h.r.Delete(noteUUID)
@@ -105,15 +101,9 @@ func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 	setResponse(w, http.StatusNoContent, nil)
 }
 
-// PUT /notes/{id}
 func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
-	var req models.Note
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		setErrorResponse(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	idStr := req.Id
+	params := mux.Vars(r)
+	idStr := params["id"]
 
 	if idStr == "" {
 		setErrorResponse(w, http.StatusBadRequest, "id required")
@@ -123,6 +113,15 @@ func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 	noteID, err := uuid.Parse(idStr)
 	if err != nil {
 		setErrorResponse(w, http.StatusBadRequest, "invalid uuid")
+		return
+	}
+
+	var req struct {
+		Content string `json:"content"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		setErrorResponse(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -138,7 +137,7 @@ func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.r.UpdateNote(noteID, req.Content)
 	if err != nil {
-		setErrorResponse(w, http.StatusInternalServerError, "unhanled database error")
+		setErrorResponse(w, http.StatusInternalServerError, "database error")
 		log.Printf("Error updating note: %v", err)
 		return
 	}
@@ -148,5 +147,11 @@ func (h *NoteHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setResponse(w, http.StatusOK, req)
+	note, err := h.r.GetById(noteID)
+	if err != nil || note == nil {
+		setErrorResponse(w, http.StatusInternalServerError, "failed to get updated note")
+		return
+	}
+
+	setResponse(w, http.StatusOK, note)
 }
